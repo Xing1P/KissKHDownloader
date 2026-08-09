@@ -1,7 +1,7 @@
 import sys
 import os
 from PySide6.QtWidgets import QApplication
-from PySide6.QtGui import QFontDatabase
+from PySide6.QtGui import QFontDatabase, QIcon
 from PySide6.QtCore import Qt
 
 # Ensure root directory is in sys.path
@@ -30,6 +30,11 @@ def main():
     app = QApplication(sys.argv)
     app.setApplicationName("KissKH Downloader Qt")
     app.setOrganizationName("KissKH")
+
+    # Load App Icon
+    icon_path = os.path.abspath(os.path.join(os.path.dirname(__file__), "resources", "icon.png"))
+    if os.path.exists(icon_path):
+        app.setWindowIcon(QIcon(icon_path))
 
     # Load Kantumruy Pro font
     load_custom_fonts()

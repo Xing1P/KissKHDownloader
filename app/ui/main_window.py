@@ -19,6 +19,9 @@ from app.ui.web_tab import WebTab
 from app.ui.log_widget import LogWidget
 from app.ui.styles import get_theme_qss
 
+import os
+from PySide6.QtGui import QIcon
+
 class MainWindow(QMainWindow):
     """Main Application Window with Left Sidebar Navigation."""
 
@@ -34,9 +37,14 @@ class MainWindow(QMainWindow):
         self.setWindowTitle(f"{__app_name__} v{__version__} (Qt6)")
         self.setMinimumSize(1100, 720)
 
+        icon_path = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "resources", "icon.png"))
+        if os.path.exists(icon_path):
+            self.setWindowIcon(QIcon(icon_path))
+
         self.init_ui()
         self.apply_theme()
         self.retranslate_ui()
+
 
     def apply_theme(self):
         theme_qss = get_theme_qss(self.config.theme)

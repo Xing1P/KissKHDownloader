@@ -6,9 +6,9 @@ from PyInstaller.utils.hooks import collect_all
 
 block_cipher = None
 
-# Collect static assets & data files
+# Collect static assets & data files (fonts, icons, resources)
 datas = [
-    ('app/resources/fonts', 'app/resources/fonts'),
+    ('app/resources', 'app/resources'),
 ]
 
 hiddenimports = [
@@ -71,6 +71,7 @@ exe = EXE(
     target_arch=None,
     codesign_identity=None,
     entitlements_file=None,
+    icon='app/resources/icon.ico',
 )
 
 coll = COLLECT(
@@ -89,6 +90,6 @@ if sys.platform == 'darwin':
     app = BUNDLE(
         coll,
         name='KissKH_Downloader.app',
-        icon=None,
+        icon='app/resources/icon.png',
         bundle_identifier='org.kisskh.downloader',
     )
