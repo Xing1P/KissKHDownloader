@@ -1,13 +1,17 @@
 #!/usr/bin/env python3
 """
 Cross-Platform Build Automation Script for KissKH Downloader.
-Supports building Windows (.exe) and macOS (.app / .dmg).
+Supports building Windows (.exe) and macOS (.app / .dmg) with version tagging.
 """
 
 import sys
 import os
 import shutil
 import subprocess
+
+# Ensure app module is in sys.path
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from app.__version__ import __version__
 
 def run_command(cmd, cwd=None):
     """Executes a command and streams output."""
@@ -17,32 +21,35 @@ def run_command(cmd, cwd=None):
         print(f"FAILED: Command failed with return code {result.returncode}")
         sys.exit(result.returncode)
 
-def build_windows():
+def build_windows(version: str):
     """Builds Windows Executable and creates a Zip archive."""
-    print("Building for Windows...")
+    print(f"Building for Windows (Version v{version})...")
     run_command([sys.executable, "-m", "PyInstaller", "--noconfirm", "KissKHDownloader.spec"])
 
     dist_dir = os.path.abspath("dist")
     app_dir = os.path.join(dist_dir, "KissKH_Downloader")
-    zip_path = os.path.join(dist_dir, "KissKH_Downloader_Windows.zip")
+    zip_name = f"KissKH_Downloader_v{version}_Windows"
+    zip_path = os.path.join(dist_dir, f"{zip_name}.zip")
 
     if os.path.exists(app_dir):
         print(f"Zipping Windows package into {zip_path}...")
         if os.path.exists(zip_path):
             os.remove(zip_path)
-        shutil.make_archive(os.path.join(dist_dir, "KissKH_Downloader_Windows"), 'zip', app_dir)
+        shutil.make_archive(os.path.join(dist_dir, zip_name), 'zip', app_dir)
+        # Also copy/overwrite standard KissKH_Downloader_Windows.zip for CI compatibility
+        shutil.copyfile(zip_path, os.path.join(dist_dir, "KissKH_Downloader_Windows.zip"))
         print(f"SUCCESS: Windows build completed -> {zip_path}")
     else:
         print("ERROR: Windows build folder not found!")
 
-def build_macos():
+def build_macos(version: str):
     """Builds macOS .app bundle and packages into .dmg image."""
-    print("Building for macOS...")
+    print(f"Building for macOS (Version v{version})...")
     run_command([sys.executable, "-m", "PyInstaller", "--noconfirm", "KissKHDownloader.spec"])
 
     dist_dir = os.path.abspath("dist")
     app_path = os.path.join(dist_dir, "KissKH_Downloader.app")
-    dmg_path = os.path.join(dist_dir, "KissKH_Downloader_macOS.dmg")
+    dmg_path = os.path.join(dist_dir, f"KissKH_Downloader_v{version}_macOS.dmg")
 
     if not os.path.exists(app_path):
         print("ERROR: macOS .app bundle not found in dist/")
@@ -55,25 +62,28 @@ def build_macos():
     # Use native macOS hdiutil tool
     hdi_cmd = [
         "hdiutil", "create",
-        "-volname", "KissKH Downloader",
+        "-volname", f"KissKH Downloader v{version}",
         "-srcfolder", app_path,
         "-ov",
         "-format", "UDZO",
         dmg_path
     ]
     run_command(hdi_cmd)
+    # Also copy/overwrite standard KissKH_Downloader_macOS.dmg for CI compatibility
+    shutil.copyfile(dmg_path, os.path.join(dist_dir, "KissKH_Downloader_macOS.dmg"))
     print(f"SUCCESS: macOS DMG build completed -> {dmg_path}")
 
 def main():
-    print(f"Starting KissKH Downloader Build System on platform: {sys.platform}")
+    version = __version__
+    print(f"Starting KissKH Downloader v{version} Build System on platform: {sys.platform}")
 
     # Ensure output directories exist
     os.makedirs("dist", exist_ok=True)
 
     if sys.platform.startswith("win"):
-        build_windows()
+        build_windows(version)
     elif sys.platform == "darwin":
-        build_macos()
+        build_macos(version)
     else:
         print(f"Platform '{sys.platform}' detected. Running generic PyInstaller build...")
         run_command([sys.executable, "-m", "PyInstaller", "--noconfirm", "KissKHDownloader.spec"])

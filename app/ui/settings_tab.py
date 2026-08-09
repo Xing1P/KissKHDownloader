@@ -4,9 +4,12 @@ from PySide6.QtWidgets import (
     QMessageBox, QFrame
 )
 from PySide6.QtCore import Signal
+from app.__version__ import __version__, __app_name__
 from app.core.config import AppConfig
 from app.core.worker import PlaywrightInstallWorker, GetKeyWorker
 from app.core.i18n import tr
+
+
 
 class SettingsTab(QWidget):
     """Application Settings, Theme, Language, and Authentication Key Configuration Tab."""
@@ -178,6 +181,18 @@ class SettingsTab(QWidget):
         pref_layout.addWidget(self.website_url_input, 2, 1)
 
         layout.addWidget(self.pref_group)
+
+        # --- Section 6: About & Application Version ---
+        about_card = QFrame()
+        about_card.setProperty("class", "card")
+        about_layout = QHBoxLayout(about_card)
+
+        self.about_lbl = QLabel(f"<b>{__app_name__}</b> — Version <b>v{__version__}</b>")
+        about_layout.addWidget(self.about_lbl)
+        about_layout.addStretch()
+
+        layout.addWidget(about_card)
+
 
         # Save Button
         save_row = QHBoxLayout()

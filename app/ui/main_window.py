@@ -6,6 +6,7 @@ from PySide6.QtWidgets import (
 )
 from PySide6.QtCore import Qt
 
+from app.__version__ import __version__, __app_name__
 from app.core.config import AppConfig
 from app.core.database import DatabaseManager
 from app.core.i18n import tr
@@ -30,7 +31,7 @@ class MainWindow(QMainWindow):
         self.active_worker_data: Dict[str, dict] = {}
         self.current_running_task_id: Optional[str] = None
 
-        self.setWindowTitle("KissKH Movie & Drama Downloader (Qt6)")
+        self.setWindowTitle(f"{__app_name__} v{__version__} (Qt6)")
         self.setMinimumSize(1100, 720)
 
         self.init_ui()
@@ -72,7 +73,8 @@ class MainWindow(QMainWindow):
         self.btn_history.setText(tr("nav_history", lang))
         self.btn_settings.setText(tr("nav_settings", lang))
         self.title_label.setText(tr("app_title", lang))
-        self.subtitle_label.setText(tr("app_subtitle", lang))
+        self.subtitle_label.setText(f"v{__version__} • {tr('app_subtitle', lang)}")
+
 
 
         if hasattr(self, "lang_toggle_btn"):
