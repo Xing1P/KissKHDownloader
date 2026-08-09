@@ -4,7 +4,9 @@ from PySide6.QtWidgets import (
     QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, QStackedWidget,
     QLabel, QStatusBar, QSplitter, QPushButton, QFrame, QButtonGroup
 )
-from PySide6.QtCore import Qt
+import os
+from PySide6.QtCore import Qt, QSize
+from PySide6.QtGui import QIcon, QPixmap
 
 from app.__version__ import __version__, __app_name__
 from app.core.config import AppConfig
@@ -19,8 +21,7 @@ from app.ui.web_tab import WebTab
 from app.ui.log_widget import LogWidget
 from app.ui.styles import get_theme_qss
 
-import os
-from PySide6.QtGui import QIcon
+
 
 class MainWindow(QMainWindow):
     """Main Application Window with Left Sidebar Navigation."""
@@ -75,11 +76,11 @@ class MainWindow(QMainWindow):
 
     def retranslate_ui(self):
         lang = self.config.language
-        self.btn_web.setText(tr("nav_browse", lang))
-        self.btn_downloader.setText(tr("nav_downloader", lang))
+        self.btn_web.setText(f"  {tr('nav_browse', lang)}")
+        self.btn_downloader.setText(f"  {tr('nav_downloader', lang)}")
         self.update_queue_tab_title()
-        self.btn_history.setText(tr("nav_history", lang))
-        self.btn_settings.setText(tr("nav_settings", lang))
+        self.btn_history.setText(f"  {tr('nav_history', lang)}")
+        self.btn_settings.setText(f"  {tr('nav_settings', lang)}")
         self.title_label.setText(tr("app_title", lang))
         self.subtitle_label.setText(f"v{__version__} • {tr('app_subtitle', lang)}")
 
@@ -137,36 +138,49 @@ class MainWindow(QMainWindow):
         self.nav_bg = QButtonGroup(self)
         self.nav_bg.setExclusive(True)
 
+        icons_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "resources", "icons"))
+
         self.btn_web = QPushButton()
         self.btn_web.setCheckable(True)
         self.btn_web.setChecked(True)
         self.btn_web.setProperty("class", "nav-btn")
+        self.btn_web.setIcon(QIcon(os.path.join(icons_dir, "browse.png")))
+        self.btn_web.setIconSize(QSize(24, 24))
         self.nav_bg.addButton(self.btn_web, 0)
         sidebar_layout.addWidget(self.btn_web)
 
         self.btn_downloader = QPushButton()
         self.btn_downloader.setCheckable(True)
         self.btn_downloader.setProperty("class", "nav-btn")
+        self.btn_downloader.setIcon(QIcon(os.path.join(icons_dir, "download.png")))
+        self.btn_downloader.setIconSize(QSize(24, 24))
         self.nav_bg.addButton(self.btn_downloader, 1)
         sidebar_layout.addWidget(self.btn_downloader)
 
         self.btn_queue = QPushButton()
         self.btn_queue.setCheckable(True)
         self.btn_queue.setProperty("class", "nav-btn")
+        self.btn_queue.setIcon(QIcon(os.path.join(icons_dir, "queue.png")))
+        self.btn_queue.setIconSize(QSize(24, 24))
         self.nav_bg.addButton(self.btn_queue, 2)
         sidebar_layout.addWidget(self.btn_queue)
 
         self.btn_history = QPushButton()
         self.btn_history.setCheckable(True)
         self.btn_history.setProperty("class", "nav-btn")
+        self.btn_history.setIcon(QIcon(os.path.join(icons_dir, "history.png")))
+        self.btn_history.setIconSize(QSize(24, 24))
         self.nav_bg.addButton(self.btn_history, 3)
         sidebar_layout.addWidget(self.btn_history)
 
         self.btn_settings = QPushButton()
         self.btn_settings.setCheckable(True)
         self.btn_settings.setProperty("class", "nav-btn")
+        self.btn_settings.setIcon(QIcon(os.path.join(icons_dir, "settings.png")))
+        self.btn_settings.setIconSize(QSize(24, 24))
         self.nav_bg.addButton(self.btn_settings, 4)
         sidebar_layout.addWidget(self.btn_settings)
+
 
         self.nav_bg.idClicked.connect(self.on_nav_button_clicked)
 
@@ -272,8 +286,9 @@ class MainWindow(QMainWindow):
     def update_queue_tab_title(self):
         count = len(self.download_queue) + len(self.active_workers)
         lang = self.config.language
-        self.btn_queue.setText(tr("nav_queue", lang, count=count))
+        self.btn_queue.setText(f"  {tr('nav_queue', lang, count=count)}")
         self.active_count_badge.setText(tr("active_downloads", lang, count=len(self.active_workers)))
+
 
     def on_url_captured_from_browser(self, url: str):
         self.downloader_tab.url_input.setText(url)

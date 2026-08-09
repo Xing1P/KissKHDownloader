@@ -3,14 +3,15 @@ from typing import Dict, Any
 TRANSLATIONS: Dict[str, Dict[str, str]] = {
     "en": {
         # Sidebar Menu
-        "app_title": "🎬 KissKH Pro",
+        "app_title": "KissKH Pro",
         "app_subtitle": "Drama & Movie Downloader",
-        "nav_browse": "🌐  Browse KissKH",
-        "nav_downloader": "📥  New Download",
-        "nav_queue": "📊  Download Queue ({count})",
-        "nav_history": "📜  Download History",
-        "nav_settings": "⚙️  Settings & Keys",
+        "nav_browse": "Browse KissKH",
+        "nav_downloader": "New Download",
+        "nav_queue": "Download Queue ({count})",
+        "nav_history": "Download History",
+        "nav_settings": "Settings & Keys",
         "active_downloads": "Active Downloads: {count}",
+
 
         # Web Tab
         "btn_back": "◄ Back",
@@ -100,14 +101,15 @@ TRANSLATIONS: Dict[str, Dict[str, str]] = {
     },
     "km": {
         # Sidebar Menu
-        "app_title": "🎬 KissKH Pro",
+        "app_title": "KissKH Pro",
         "app_subtitle": "កម្មវិធីទាញយកកុន និង រឿងភាគ",
-        "nav_browse": "🌐  មើល KissKH",
-        "nav_downloader": "📥  ទាញយកថ្មី",
-        "nav_queue": "📊  បញ្ជីទាញយក ({count})",
-        "nav_history": "📜  ប្រវត្តិទាញយក",
-        "nav_settings": "⚙️  ការកំណត់ & កូនសោ",
+        "nav_browse": "មើល KissKH",
+        "nav_downloader": "ទាញយកថ្មី",
+        "nav_queue": "បញ្ជីទាញយក ({count})",
+        "nav_history": "ប្រវត្តិទាញយក",
+        "nav_settings": "ការកំណត់ & កូនសោ",
         "active_downloads": "កំពុងទាញយកសកម្ម: {count}",
+
 
         # Web Tab
         "btn_back": "◄ ត្រឡប់ក្រោយ",
