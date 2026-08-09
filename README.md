@@ -60,6 +60,17 @@ To launch the PySide6 Qt GUI application, run:
 python app/main.py
 ```
 
+### 📦 Building Executables & DMG (.exe / .dmg)
+
+To build standalone binary packages for your current operating system:
+
+```bash
+python build.py
+```
+
+- **Windows**: Generates `dist/KissKH_Downloader_Windows.zip` containing `KissKH_Downloader.exe`.
+- **macOS**: Generates `dist/KissKH_Downloader_macOS.dmg` disk image containing `KissKH_Downloader.app`.
+
 ---
 
 <br/>
@@ -121,6 +132,19 @@ python app/main.py
 ```bash
 python app/main.py
 ```
+
+---
+
+### 📦 ការបង្កើនជាឯកសារដំឡើង (.exe / .dmg)
+
+ដើម្បីបង្កើតឯកសារ executable / installer សម្រាប់ប្រព័ន្ធប្រតិបត្តិការរបស់អ្នក៖
+
+```bash
+python build.py
+```
+
+- **Windows**: នឹងបង្កើត `dist/KissKH_Downloader_Windows.zip` ដែលមាន `KissKH_Downloader.exe`។
+- **macOS**: នឹងបង្កើត `dist/KissKH_Downloader_macOS.dmg` ដែលមាន `KissKH_Downloader.app`។
 
 ---
 
