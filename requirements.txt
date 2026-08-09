@@ -1,0 +1,3 @@
+kisskh-downloader>=0.2.3
+PySide6>=6.5.0
+playwright>=1.40.0
