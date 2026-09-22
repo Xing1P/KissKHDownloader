@@ -1,7 +1,7 @@
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QGridLayout, QLabel,
     QLineEdit, QPushButton, QGroupBox, QComboBox, QCheckBox,
-    QMessageBox, QFrame
+    QMessageBox, QFrame, QFileDialog
 )
 from PySide6.QtCore import Signal
 from app.__version__ import __version__, __app_name__
@@ -180,6 +180,17 @@ class SettingsTab(QWidget):
         self.website_url_input.setPlaceholderText("e.g., https://kisskh.is/")
         pref_layout.addWidget(self.website_url_input, 2, 1)
 
+        self.lbl_save_folder = QLabel()
+        pref_layout.addWidget(self.lbl_save_folder, 3, 0)
+        folder_row = QHBoxLayout()
+        self.save_folder_input = QLineEdit()
+        self.save_folder_input.setText(self.config.default_output_dir)
+        folder_row.addWidget(self.save_folder_input)
+        self.browse_folder_btn = QPushButton()
+        self.browse_folder_btn.clicked.connect(self.browse_save_folder)
+        folder_row.addWidget(self.browse_folder_btn)
+        pref_layout.addLayout(folder_row, 3, 1)
+
         layout.addWidget(self.pref_group)
 
         # --- Section 6: About & Application Version ---
@@ -235,6 +246,8 @@ class SettingsTab(QWidget):
         self.lbl_def_quality.setText(tr("lbl_def_quality", lang))
         self.lbl_def_sub_lang.setText(tr("lbl_def_sub_lang", lang))
         self.lbl_website_url.setText(tr("lbl_website_url", lang))
+        self.lbl_save_folder.setText(tr("lbl_save_folder", lang))
+        self.browse_folder_btn.setText(tr("btn_browse", lang))
         self.save_btn.setText(tr("btn_save_settings", lang))
 
     def toggle_keys_visibility(self, checked: bool):
@@ -243,6 +256,13 @@ class SettingsTab(QWidget):
         self.sub_key_input.setEchoMode(mode)
         self.decrypt_key_input.setEchoMode(mode)
         self.decrypt_iv_input.setEchoMode(mode)
+
+    def browse_save_folder(self):
+        dir_path = QFileDialog.getExistingDirectory(
+            self, "Select Save Folder", self.save_folder_input.text()
+        )
+        if dir_path:
+            self.save_folder_input.setText(dir_path)
 
     def install_playwright(self):
         self.install_pw_btn.setEnabled(False)
@@ -269,7 +289,7 @@ class SettingsTab(QWidget):
 
         self.fetch_keys_btn.setEnabled(False)
         self.fetch_keys_btn.setText("Extracting Keys...")
-        self.get_key_worker = GetKeyWorker(url)
+        self.get_key_worker = GetKeyWorker(url, base_url=self.website_url_input.text().strip() or self.config.website_url)
         self.get_key_worker.log_signal.connect(self.log_signal.emit)
         self.get_key_worker.finished_signal.connect(self.on_get_key_finished)
         self.get_key_worker.start()
@@ -302,6 +322,12 @@ class SettingsTab(QWidget):
         web_url = self.website_url_input.text().strip()
         if web_url:
             self.config.website_url = web_url
+
+        save_folder = self.save_folder_input.text().strip()
+        if save_folder:
+            self.config.default_output_dir = save_folder
+        # Show the resolved path (falls back to the default if the folder is unusable).
+        self.save_folder_input.setText(self.config.default_output_dir)
 
         QMessageBox.information(self, "Settings Saved", "Application settings have been updated.")
         self.settings_saved.emit()

@@ -1,3 +1,4 @@
+import json
 import sqlite3
 import os
 import datetime
@@ -30,6 +31,21 @@ class DatabaseManager:
                     output_dir TEXT,
                     status TEXT,
                     completed_at TEXT
+                )
+            """)
+            # Per-episode download tasks; failed/unfinished rows are restored on next launch.
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS download_tasks (
+                    task_id TEXT PRIMARY KEY,
+                    group_id TEXT NOT NULL,
+                    drama_title TEXT,
+                    drama_url TEXT,
+                    episode INTEGER,
+                    params TEXT,
+                    status TEXT,
+                    attempts INTEGER DEFAULT 0,
+                    error TEXT,
+                    updated_at TEXT
                 )
             """)
             conn.commit()
@@ -72,6 +88,11 @@ class DatabaseManager:
             rows = cursor.fetchall()
             return [dict(row) for row in rows]
 
+    def delete_records_by_task_id(self, task_id: str):
+        with self._get_connection() as conn:
+            conn.execute("DELETE FROM download_history WHERE task_id = ?", (task_id,))
+            conn.commit()
+
     def delete_record(self, record_id: int):
         """Deletes a record by ID."""
         with self._get_connection() as conn:
@@ -84,4 +105,68 @@ class DatabaseManager:
         with self._get_connection() as conn:
             cursor = conn.cursor()
             cursor.execute("DELETE FROM download_history")
+            conn.commit()
+
+    # --- Episode download tasks ---
+
+    @staticmethod
+    def _now() -> str:
+        return datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
+    def upsert_task(self, task: Dict[str, Any]):
+        """Inserts or replaces an episode task."""
+        with self._get_connection() as conn:
+            conn.execute("""
+                INSERT OR REPLACE INTO download_tasks (
+                    task_id, group_id, drama_title, drama_url, episode, params, status, attempts, error, updated_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """, (
+                task["task_id"], task["group_id"], task["drama_title"], task["drama_url"],
+                task["episode"], json.dumps(task["params"]), task["status"],
+                task.get("attempts", 0), task.get("error", ""), self._now(),
+            ))
+            conn.commit()
+
+    def update_task_status(self, task_id: str, status: str, attempts: int, error: str = ""):
+        with self._get_connection() as conn:
+            conn.execute(
+                "UPDATE download_tasks SET status = ?, attempts = ?, error = ?, updated_at = ? WHERE task_id = ?",
+                (status, attempts, error, self._now(), task_id),
+            )
+            conn.commit()
+
+    def get_restorable_tasks(self) -> List[Dict[str, Any]]:
+        """Returns all tasks of movies that still have unfinished episodes.
+
+        Episodes cut off mid-download are marked failed ("Interrupted"); movies whose
+        episodes all completed are dropped.
+        """
+        with self._get_connection() as conn:
+            conn.execute(
+                "UPDATE download_tasks SET status = 'failed', error = 'Interrupted' WHERE status = 'downloading'"
+            )
+            conn.execute("""
+                DELETE FROM download_tasks WHERE group_id NOT IN (
+                    SELECT group_id FROM download_tasks WHERE status != 'completed'
+                )
+            """)
+            conn.commit()
+            rows = conn.execute("SELECT * FROM download_tasks ORDER BY rowid").fetchall()
+        tasks = []
+        for row in rows:
+            task = dict(row)
+            task["params"] = json.loads(task["params"] or "{}")
+            tasks.append(task)
+        return tasks
+
+    def delete_tasks(self, task_ids: List[str]):
+        if not task_ids:
+            return
+        with self._get_connection() as conn:
+            conn.executemany("DELETE FROM download_tasks WHERE task_id = ?", [(t,) for t in task_ids])
+            conn.commit()
+
+    def delete_completed_tasks(self):
+        with self._get_connection() as conn:
+            conn.execute("DELETE FROM download_tasks WHERE status = 'completed'")
             conn.commit()

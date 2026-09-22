@@ -13,9 +13,15 @@ class AppConfig:
 
     @property
     def default_output_dir(self) -> str:
-        downloads_path = str(Path.home() / "Downloads" / "KissKH_Downloads")
-        os.makedirs(downloads_path, exist_ok=True)
-        return self.settings.value("output_dir", downloads_path, type=str)
+        fallback_path = str(Path.home() / "Downloads" / "KissKH_Downloads")
+        path = self.settings.value("output_dir", "", type=str) or fallback_path
+        try:
+            os.makedirs(path, exist_ok=True)
+        except OSError:
+            # Saved drive/folder is unavailable (e.g. removed disk) - fall back safely.
+            path = fallback_path
+            os.makedirs(path, exist_ok=True)
+        return path
 
     @default_output_dir.setter
     def default_output_dir(self, value: str):

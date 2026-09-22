@@ -32,9 +32,13 @@ class DownloadWorker(QThread):
         sub_key: str = "",
         decrypt_key: str = "",
         decrypt_iv: str = "",
+        base_url: str = "",
+        skip_recap: bool = False,
         parent=None,
     ):
         super().__init__(parent)
+        self.base_url = base_url
+        self.skip_recap = skip_recap
         self.task_id = task_id
         self.url_or_name = url_or_name
         self.output_dir = output_dir
@@ -75,12 +79,14 @@ class DownloadWorker(QThread):
             decrypt_subtitles=self.decrypt_subtitles,
             decrypt_key=self.decrypt_key,
             decrypt_iv=self.decrypt_iv,
+            skip_recap=self.skip_recap,
         )
         env = KissKHWrapper.get_environment(
             stream_key=self.stream_key,
             sub_key=self.sub_key,
             decrypt_key=self.decrypt_key,
             decrypt_iv=self.decrypt_iv,
+            base_url=self.base_url,
         )
 
 
@@ -98,6 +104,8 @@ class DownloadWorker(QThread):
                 stdout=subprocess.PIPE,
                 stderr=subprocess.STDOUT,
                 text=True,
+                encoding="utf-8",
+                errors="replace",
                 env=env,
                 bufsize=1,
                 creationflags=creationflags,
@@ -106,6 +114,8 @@ class DownloadWorker(QThread):
             current_percent = 0
             speed_text = ""
             status_text = "Downloading..."
+            # The CLI logs some per-episode failures and still exits 0.
+            soft_error = ""
 
             while True:
                 if self._is_cancelled:
@@ -120,6 +130,11 @@ class DownloadWorker(QThread):
                 if line:
                     clean_line = line.strip()
                     if clean_line:
+                        lower_line = clean_line.lower()
+                        if "failed to generate authentication token" in lower_line:
+                            soft_error = "Failed to generate authentication token"
+                        elif "still not released" in lower_line:
+                            soft_error = "Episode not released yet"
                         # Log output line
                         if "error" in clean_line.lower() or "exception" in clean_line.lower():
                             self.log_signal.emit(self.task_id, "ERROR", clean_line)
@@ -153,6 +168,9 @@ class DownloadWorker(QThread):
             rc = self.process.poll()
             if self._is_cancelled:
                 self.finished_signal.emit(self.task_id, False, "Cancelled")
+            elif rc == 0 and soft_error:
+                self.log_signal.emit(self.task_id, "ERROR", soft_error)
+                self.finished_signal.emit(self.task_id, False, soft_error)
             elif rc == 0:
                 self.progress_signal.emit(self.task_id, 100, "Done", "Completed successfully")
                 self.log_signal.emit(self.task_id, "SUCCESS", "Download finished successfully!")
@@ -182,6 +200,8 @@ class PlaywrightInstallWorker(QThread):
                 stdout=subprocess.PIPE,
                 stderr=subprocess.STDOUT,
                 text=True,
+                encoding="utf-8",
+                errors="replace",
                 creationflags=creationflags,
             )
             for line in process.stdout:
@@ -204,9 +224,10 @@ class GetKeyWorker(QThread):
     # success, stream_key, sub_key, message
     finished_signal = Signal(bool, str, str, str)
 
-    def __init__(self, episode_url: str, parent=None):
+    def __init__(self, episode_url: str, base_url: str = "", parent=None):
         super().__init__(parent)
         self.episode_url = episode_url
+        self.base_url = base_url
 
     def run(self):
         cmd = [sys.executable, "-m", "kisskh_downloader.cli", "get-key", self.episode_url]
@@ -218,6 +239,9 @@ class GetKeyWorker(QThread):
                 stdout=subprocess.PIPE,
                 stderr=subprocess.STDOUT,
                 text=True,
+                encoding="utf-8",
+                errors="replace",
+                env=KissKHWrapper.get_environment(base_url=self.base_url),
                 creationflags=creationflags,
             )
             stream_key = ""
@@ -243,3 +267,80 @@ class GetKeyWorker(QThread):
         except Exception as e:
             self.finished_signal.emit(False, "", "", f"Error: {str(e)}")
 
+
+
+class ResolveEpisodesWorker(QThread):
+    """Looks up a drama's episode numbers so each episode can be downloaded as its own task."""
+
+    # group_id, drama_title, drama_url, episode numbers
+    resolved_signal = Signal(str, str, str, list)
+    # group_id, error message
+    failed_signal = Signal(str, str)
+
+    def __init__(
+        self,
+        group_id: str,
+        url_or_name: str,
+        base_url: str,
+        first_ep: Optional[int] = None,
+        last_ep: Optional[int] = None,
+        all_episodes: bool = True,
+        parent=None,
+    ):
+        super().__init__(parent)
+        self.group_id = group_id
+        self.url_or_name = url_or_name.strip()
+        self.base_url = base_url
+        self.first_ep = first_ep
+        self.last_ep = last_ep
+        self.all_episodes = all_episodes
+
+    def run(self):
+        try:
+            from urllib.parse import urlsplit, parse_qs, unquote
+            from kisskh_downloader.kisskh_api import KissKHApi
+
+            parts = urlsplit(self.base_url.strip())
+            site = f"{parts.scheme}://{parts.netloc}" if parts.scheme and parts.netloc else None
+            api = KissKHApi(base_url=site)
+
+            single_episode: Optional[int] = None
+            if self.url_or_name.lower().startswith(("http://", "https://")):
+                url_parts = urlsplit(self.url_or_name)
+                ids = parse_qs(url_parts.query).get("id")
+                if not ids:
+                    raise ValueError("Not a valid drama URL (missing ?id=...).")
+                drama_id = int(ids[0])
+                segments = url_parts.path.split("/")
+                slug = segments[2] if len(segments) > 2 else "Drama"
+                title = unquote(slug).replace("-", " ").replace("_", " ")
+                drama_url = KissKHWrapper.drama_url(self.url_or_name)
+                # An episode URL on its own means "just this episode", matching the CLI.
+                ep_match = re.search(r"Episode-(\d+)", url_parts.path)
+                if self.all_episodes and ep_match and parse_qs(url_parts.query).get("ep"):
+                    single_episode = int(ep_match.group(1))
+            else:
+                results = list(api.search_dramas_by_query(self.url_or_name))
+                if not results:
+                    raise ValueError(f"No drama found for '{self.url_or_name}'.")
+                query = self.url_or_name.lower()
+                drama = next((d for d in results if d.title.lower() == query), results[0])
+                drama_id = drama.id
+                title = drama.title
+                drama_url = f"{api.site_domain}/Drama/{drama.title.replace(' ', '-')}?id={drama.id}"
+
+            if single_episode is not None:
+                start = stop = single_episode
+            elif self.all_episodes:
+                start, stop = 1, sys.maxsize
+            else:
+                start = self.first_ep or 1
+                stop = self.last_ep or sys.maxsize
+
+            episode_ids = api.get_episode_ids(drama_id=drama_id, start=start, stop=stop, skip_recap=True)
+            episodes = sorted(int(num) for num in episode_ids)
+            if not episodes:
+                raise ValueError("No episodes found in the selected range.")
+            self.resolved_signal.emit(self.group_id, title, drama_url, episodes)
+        except Exception as e:
+            self.failed_signal.emit(self.group_id, f"Could not load episode list: {e}")

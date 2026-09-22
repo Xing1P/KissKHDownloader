@@ -1,6 +1,7 @@
 import sys
 import os
 from typing import List, Dict, Optional
+from urllib.parse import urlsplit, urlunsplit, parse_qs, urlencode
 
 class KissKHWrapper:
     """Constructs command line arguments and environment variables for kisskh-downloader CLI."""
@@ -24,6 +25,7 @@ class KissKHWrapper:
         decrypt_subtitles: bool = False,
         decrypt_key: str = "",
         decrypt_iv: str = "",
+        skip_recap: bool = False,
     ) -> List[str]:
         """Builds command list for subprocess execution."""
         cmd = [
@@ -40,6 +42,8 @@ class KissKHWrapper:
                 cmd.extend(["-f", str(first_ep)])
             if last_ep is not None and last_ep > 0:
                 cmd.extend(["-l", str(last_ep)])
+        if skip_recap:
+            cmd.append("--skip-recap")
 
         if enable_subtitles and sub_lang:
             cmd.extend(["-s", sub_lang])
@@ -55,6 +59,17 @@ class KissKHWrapper:
 
         return cmd
 
+    @staticmethod
+    def drama_url(url: str) -> str:
+        """Strips episode info from a KissKH URL so the CLI honours -f/-l instead of one episode."""
+        parts = urlsplit(url)
+        segments = parts.path.split("/")
+        drama_id = parse_qs(parts.query).get("id")
+        if len(segments) < 3 or not drama_id:
+            return url
+        path = "/".join(segments[:3])  # "/Drama/<slug>"
+        return urlunsplit((parts.scheme, parts.netloc, path, urlencode({"id": drama_id[0]}), ""))
+
     @classmethod
     def get_environment(
         cls,
@@ -62,9 +77,12 @@ class KissKHWrapper:
         sub_key: str = "",
         decrypt_key: str = "",
         decrypt_iv: str = "",
+        base_url: str = "",
     ) -> Dict[str, str]:
         """Prepares environment variables including auth and subtitle keys."""
         env = os.environ.copy()
+        # Piped CLI output uses the ANSI codepage on Windows and crashes on box-drawing chars.
+        env["PYTHONIOENCODING"] = "utf-8"
         if stream_key:
             env["KISSKH_STREAM_KEY"] = stream_key
         if sub_key:
@@ -73,4 +91,9 @@ class KissKHWrapper:
             env["KISSKH_KEY"] = decrypt_key
         if decrypt_iv:
             env["KISSKH_INITIALIZATION_VECTOR"] = decrypt_iv
+        if base_url:
+            # The CLI defaults to a hard-coded mirror; point it at the configured site.
+            parts = urlsplit(base_url.strip())
+            if parts.scheme and parts.netloc:
+                env["KISSKH_BASE_URL"] = f"{parts.scheme}://{parts.netloc}"
         return env
